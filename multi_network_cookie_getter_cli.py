@@ -25,8 +25,8 @@ load_dotenv('config.env')
 
 def cookie_to_browser_format(cookie_string: str, domain: str = None, expiration_days: int = 30):
     """
-    Convert a cookie string to browser extension format (GoLogin compatible, Instagram specific).
-    Handles all Instagram cookies flexibly.
+    Convert a cookie string to browser extension format (GoLogin compatible).
+    Handles Facebook and Instagram cookies flexibly.
     """
     cookies = []
     if not cookie_string or cookie_string.strip() == '':
@@ -43,7 +43,7 @@ def cookie_to_browser_format(cookie_string: str, domain: str = None, expiration_
             cookie_obj = {
                 "name": name,
                 "value": cookie_value,
-                "domain": domain or ".instagram.com",
+                "domain": domain or ".facebook.com",
                 "path": "/",
                 "secure": True,
                 "httpOnly": False,
@@ -53,23 +53,106 @@ def cookie_to_browser_format(cookie_string: str, domain: str = None, expiration_
                 "expirationDate": expiration_date
             }
             
-            # Instagram-specific logic - handle all known Instagram cookies
-            if name == "rur":
-                # rur is always session cookie, no expiration
-                cookie_obj["httpOnly"] = True
-                cookie_obj["session"] = True
-                cookie_obj.pop("expirationDate", None)
-            elif name in ["ig_did", "sessionid", "mid", "datr", "sb"]:
-                # These are httpOnly but not session cookies
-                cookie_obj["httpOnly"] = True
-                cookie_obj["session"] = False
-            elif name in ["csrftoken", "ds_user_id", "ds_user", "username"]:
-                # These are regular cookies with expiration
-                cookie_obj["httpOnly"] = False
-                cookie_obj["session"] = False
+            # Facebook-specific cookie handling
+            if domain and '.facebook.com' in domain:
+                # Facebook cookies that are always httpOnly
+                http_only_cookies = [
+                    'c_user', 'xs', 'fr', 'datr', 'sb', 'wd', 'dbln', 'ps_l', 'ps_n',
+                    'x-referer', 'presence', 'locale', 'lu', 'act', 'csm', 'spin',
+                    'xs', 'fr', 'datr', 'sb', 'wd', 'dbln', 'ps_l', 'ps_n', 'x-referer'
+                ]
+                
+                # Facebook cookies that are session cookies (no expiration)
+                session_cookies = [
+                    'presence', 'locale', 'lu', 'act', 'csm', 'spin'
+                ]
+                
+                # Facebook cookies that are secure but not httpOnly
+                secure_not_http_only = [
+                    'wd', 'dbln', 'ps_l', 'ps_n', 'x-referer'
+                ]
+                
+                if name in http_only_cookies:
+                    cookie_obj["httpOnly"] = True
+                
+                if name in session_cookies:
+                    cookie_obj["session"] = True
+                    cookie_obj.pop("expirationDate", None)
+                
+                if name in secure_not_http_only:
+                    cookie_obj["httpOnly"] = False
+                    cookie_obj["secure"] = True
+                
+                # Special handling for specific Facebook cookies
+                if name == "c_user":
+                    # User ID cookie - always httpOnly, not session
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = False
+                elif name == "xs":
+                    # Session token - always httpOnly, not session
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = False
+                elif name == "fr":
+                    # Friend request token - always httpOnly, not session
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = False
+                elif name == "datr":
+                    # Data retention - always httpOnly, not session
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = False
+                elif name == "sb":
+                    # Secure browsing - always httpOnly, not session
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = False
+                elif name == "wd":
+                    # Window dimensions - not httpOnly, not session
+                    cookie_obj["httpOnly"] = False
+                    cookie_obj["session"] = False
+                elif name == "dbln":
+                    # Double login - not httpOnly, not session
+                    cookie_obj["httpOnly"] = False
+                    cookie_obj["session"] = False
+                elif name == "ps_l":
+                    # Page speed - not httpOnly, not session
+                    cookie_obj["httpOnly"] = False
+                    cookie_obj["session"] = False
+                elif name == "ps_n":
+                    # Page speed - not httpOnly, not session
+                    cookie_obj["httpOnly"] = False
+                    cookie_obj["session"] = False
+                elif name == "x-referer":
+                    # Referer - not httpOnly, not session
+                    cookie_obj["httpOnly"] = False
+                    cookie_obj["session"] = False
+                else:
+                    # For any other Facebook cookies, use sensible defaults
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = False
+            
+            # Instagram-specific logic (keeping existing logic)
+            elif domain and '.instagram.com' in domain:
+                if name == "rur":
+                    # rur is always session cookie, no expiration
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = True
+                    cookie_obj.pop("expirationDate", None)
+                elif name in ["ig_did", "sessionid", "mid", "datr", "sb"]:
+                    # These are httpOnly but not session cookies
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = False
+                elif name in ["csrftoken", "ds_user_id", "ds_user", "username"]:
+                    # These are regular cookies with expiration
+                    cookie_obj["httpOnly"] = False
+                    cookie_obj["session"] = False
+                else:
+                    # For any other Instagram cookies, use sensible defaults
+                    # Most Instagram cookies are httpOnly but not session
+                    cookie_obj["httpOnly"] = True
+                    cookie_obj["session"] = False
+            
+            # Default handling for other domains
             else:
-                # For any other cookies, use sensible defaults
-                # Most Instagram cookies are httpOnly but not session
+                # For any other domains, use sensible defaults
                 cookie_obj["httpOnly"] = True
                 cookie_obj["session"] = False
             
@@ -95,7 +178,7 @@ def get_network_domain(network: str) -> str:
         'twitter': '.twitter.com',
         'youtube': '.youtube.com'
     }
-    return domains.get(network.lower(), '.instagram.com')
+    return domains.get(network.lower(), '.facebook.com')
 
 
 def get_table_name(network: str) -> str:
